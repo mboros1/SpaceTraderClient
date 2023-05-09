@@ -75,7 +75,7 @@ boost::json::object do_post(ssl::context& ctx, net::io_context& ioc)
     // Convert the body into a string
     std::string body_str = beast::buffers_to_string(res.body().data());
 
-// Parse the response body into a JSON object
+    // Parse the response body into a JSON object
     boost::json::object json_res;
     try {
         boost::json::value val = boost::json::parse(body_str);

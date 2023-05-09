@@ -26,47 +26,66 @@ RegisterDb::RegisterDb() {
 
 }
 
-static int callback(void *data, int argc, char **argv, char **azColName) {
-    int i;
-    fprintf(stderr, "%s: ", (const char*)data);
-
-    for(i = 0; i<argc; i++) {
-        printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
-    }
-    printf("\n");
-    return 0;
-}
-
 std::string RegisterDb::getToken(const char *string) {
     std::string sql = "SELECT token FROM agents WHERE name = '" + std::string(string) + "';";
     char *zErrMsg = 0;
 
-    // get token from db
-    char *token = nullptr;
-    int rc = sqlite3_exec(db, sql.c_str(), callback, &token, &zErrMsg);
+    // Create a vector to store the token(s)
+    std::vector<std::string> tokens;
+
+    // Define the lambda function
+    auto callback = [](void *data, int argc, char **argv, char **azColName) -> int {
+        auto& tokens = *static_cast<std::vector<std::string>*>(data);
+        for(int i = 0; i<argc; i++) {
+            if (std::string(azColName[i]) == "token") {
+                tokens.push_back(argv[i] ? argv[i] : "NULL");
+            }
+        }
+        return 0;
+    };
+
+    // Get tokens from db
+    int rc = sqlite3_exec(db, sql.c_str(), callback, &tokens, &zErrMsg);
     if (zErrMsg) {
         std::cerr << zErrMsg << std::endl;
+        sqlite3_free(zErrMsg);
     } else {
-        std::cout << "Token retrieved successfully" << std::endl;
+        std::cout << "Token(s) retrieved successfully" << std::endl;
     }
-    return std::string(token);
-}
 
+    assert(tokens.size() == 1);
+
+    return tokens[0];
+}
 
 bool RegisterDb::hasToken(const char *string) {
     std::string sql = "SELECT token FROM agents WHERE name = '" + std::string(string) + "';";
     char *zErrMsg = 0;
 
+    // Define the lambda function
+    auto callback = [](void *data, int argc, char **argv, char **azColName) -> int {
+        auto& hasToken = *static_cast<bool*>(data);
+        for(int i = 0; i<argc; i++) {
+            if (std::string(azColName[i]) == "token") {
+                hasToken = true;
+                return 0;
+            }
+        }
+        hasToken = false;
+        return 0;
+    };
+
     // get token from db
-    char *token = nullptr;
-    int rc = sqlite3_exec(db, sql.c_str(), callback, &token, &zErrMsg);
+    bool hasToken = false;
+    int rc = sqlite3_exec(db, sql.c_str(), callback, &hasToken, &zErrMsg);
 
     if (zErrMsg) {
         std::cerr << zErrMsg << std::endl;
-    } else {
+    } else if (hasToken) {
         std::cout << "Token retrieved successfully" << std::endl;
         return true;
     }
+    return false;
 }
 
 void RegisterDb::insertToken(const char *agentName, std::string authToken) {
